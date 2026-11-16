@@ -4,6 +4,7 @@ Example:
     python -m lab.train --model random_forest --n-estimators 300 --max-depth 8 --threshold 0.4
 """
 import argparse
+import inspect
 import tempfile
 from pathlib import Path
 
@@ -20,6 +21,16 @@ from lab.metrics import (
 )
 from lab.models import MODEL_CHOICES, build_model, resolved_params
 from lab.tracking import MODEL_NAME, configure
+
+# MLflow 3.x saves sklearn models with skops, which rejects tree-based models
+# (random forest, gradient boosting) unless their tree storage type is trusted.
+# These models are trained by this script, so trusting that one type is safe.
+TRUSTED_TYPES = ["sklearn.tree._tree.Tree"]
+_SKOPS_KWARGS = (
+    {"skops_trusted_types": TRUSTED_TYPES}
+    if "skops_trusted_types" in inspect.signature(mlflow.sklearn.save_model).parameters
+    else {}  # older MLflow versions don't use skops and don't accept this argument
+)
 
 
 def train_and_log(model_name: str,
@@ -65,6 +76,7 @@ def train_and_log(model_name: str,
             signature=signature,
             input_example=data.X_train.head(3),
             registered_model_name=MODEL_NAME if register else None,
+            **_SKOPS_KWARGS,
         )
 
         return {"run_id": run.info.run_id, "metrics": metrics}

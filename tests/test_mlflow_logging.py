@@ -1,8 +1,10 @@
 """End-to-end checks against a temporary MLflow tracking store."""
 import mlflow.sklearn
+import pytest
 from mlflow.tracking import MlflowClient
 
 from lab.data import load_dataset
+from lab.models import MODEL_CHOICES
 from lab.sweep import pick_best, run_sweep
 from lab.tracking import CHAMPION_ALIAS, MODEL_NAME
 from lab.train import train_and_log
@@ -54,3 +56,12 @@ def test_pick_best_breaks_ties_on_auc():
         {"run_id": "c", "metrics": {"f1": 0.8, "roc_auc": 1.00}},
     ]
     assert pick_best(results, "f1")["run_id"] == "b"
+
+
+@pytest.mark.parametrize("name", MODEL_CHOICES)
+def test_every_model_type_can_be_logged_and_reloaded(mlflow_tmp, name):
+    """Tree models need extra skops trust settings in MLflow 3.x; make sure all three work."""
+    data = load_dataset()
+    result = train_and_log(name, None, data)
+    model = mlflow.sklearn.load_model(f"runs:/{result['run_id']}/model")
+    assert model.predict(data.X_test).shape == (len(data.X_test),)

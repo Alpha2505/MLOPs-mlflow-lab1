@@ -18,6 +18,10 @@ This lab uses **MLflow** to track experiments, compare models, register the best
 | **Tests** | None | pytest suite covering data, models, metrics, MLflow logging, registration and the sweep |
 | **Structure** | Notebooks + standalone scripts | Python package (`lab/`) with modules for data, models, metrics, tracking, training, sweep and prediction |
 
+### Issue found and fixed: MLflow 3.x and tree-based models
+
+MLflow 3.x saves scikit-learn models with **skops** and re-loads them to verify the save. skops refuses `sklearn.tree._tree.Tree`, the internal tree storage used by Random Forest and Gradient Boosting, unless it is explicitly trusted, so logging those models failed while Logistic Regression worked. Since the models are trained by this project's own code, `lab/train.py` trusts exactly that one type via `skops_trusted_types` (and only passes the argument on MLflow versions that support it). A parametrized test now logs and reloads every model type so this can't regress.
+
 ## Project structure
 
 ```
